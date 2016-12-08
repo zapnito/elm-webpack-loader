@@ -4,7 +4,7 @@ var loaderUtils = require('loader-utils');
 var elmCompiler = require('node-elm-compiler');
 var path = path || require('path');
 
-var cachedDependencies = [];
+var cachedDependencies;
 
 var defaultOptions = {
   cache: false,
@@ -21,11 +21,6 @@ var getOptions = function() {
   return Object.assign({
     emitWarning: this.emitWarning
   }, defaultOptions, globalOptions, loaderOptions);
-};
-
-var addDependencies = function(dependencies) {
-  cachedDependencies = dependencies;
-  dependencies.forEach(this.addDependency.bind(this));
 };
 
 var walkSync = function(dir, filelist) {
@@ -56,13 +51,11 @@ module.exports = function() {
   var options = getOptions.call(this);
 
   var dependencies = Promise.resolve()
-    .then(function() {
-      if (!options.cache || cachedDependencies.length === 0) {
-        var baseDir = path.dirname(input);
-        var elmFiles = walkSync(baseDir, []);
-        return addDependencies(elmFiles);
-      }
-    }.bind(this))
+    .then(() => {
+      var baseDir = path.dirname(input);
+      var elmFiles = walkSync(baseDir, []);
+      elmFiles.forEach(dependency => this.addDependency(dependency));
+    })
     .then(function(v) { return { kind: 'success', result: v }; })
     .catch(function(v) { return { kind: 'error', error: v }; });
 
